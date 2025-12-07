@@ -20,7 +20,7 @@
 
 enum implementations_enum {
 	TYPE_SERIAL = 1, 
-	TYPE_PARALLEL
+	TYPE_paralelo
 } ;
 
 double *MatrixMult_serial(const double *m1, const double *m2){
@@ -49,7 +49,7 @@ double *MatrixMult_serial(const double *m1, const double *m2){
 }
 
 
-double *MatrixMult_parallel(const double *m1, const double *m2){
+double *MatrixMult_paralelo(const double *m1, const double *m2){
 
 	double *mR = (double*)malloc(
 		sizeof(double) * NLINES * NCOLS);
@@ -125,7 +125,7 @@ int main(int argc, char ** argv){
 		printf("\nLoading Matrix 2 from file ...");
 		m2 = load_double_matrix("m2.dat", NLINES, NCOLS);
 		
-		implementation_to_use = TYPE_PARALLEL;
+		implementation_to_use = TYPE_paralelo;
 
 	}
 
@@ -144,10 +144,10 @@ int main(int argc, char ** argv){
 		fprintf(stdout, "\nRunning serial implementation ...");
 		mR = MatrixMult_serial( m1, m2 );		
 			
-	} else if (implementation_to_use == TYPE_PARALLEL){
+	} else if (implementation_to_use == TYPE_paralelo){
 	
 		fprintf(stdout, "\nRunning parallel implementation ...");
-		mR = MatrixMult_parallel( m1, m2 );
+		mR = MatrixMult_paralelo( m1, m2 );
 	}
 
 #ifdef __DEBUG__
