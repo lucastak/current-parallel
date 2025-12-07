@@ -1,36 +1,49 @@
-CFLAGS = 
+CFLAGS =
 ALL_CFLAGS = -O0 -g $(CFLAGS) -I. -Iinclude -ILibPPC/include -fopenmp
 
-LDFLAGS = 
+LDFLAGS =
 ALL_LDFLAGS = $(LDFLAGS) LibPPC/lib/static/libppc.a -fopenmp
 
-CC=gcc
-LD=gcc
+# caminho para MACOS /opt/homebrew/bin/gcc-15
+CC = /opt/homebrew/bin/gcc-15
+LD = /opt/homebrew/bin/gcc-15
+# CC = gcc
+# LD = gcc
 
-# passar como parametro do Makefile o nome do codigo fonte
-HEADERS = LibPPC/include/libppc.h
+HEADERS   = LibPPC/include/libppc.h
 LIBRARIES = LibPPC/lib/static/libppc.a
-SRC = matrixmult.c
-OBJ = $(SRC:.c=.o)
 
-VPATH = src  
+PROGRAMS = \
+	matrixmult_serial \
+	matrixmult_paralelo \
+	countsort_serial \
+	countsort_paralelo \
+	quicksort_serial \
+	quicksort_paralelo \
+	triangulacao_serial \
+	triangulacao_paralelo
+
+SRCS = $(addsuffix .c,$(PROGRAMS))
+OBJS = $(SRCS:.c=.o)
+
+VPATH = src
 
 .PHONY: all clean distclean
 
-%.o: %.c $(HEADERS) 
+%.o: %.c $(HEADERS)
 	$(CC) $(ALL_CFLAGS) -c $< -o $@
 
-all: $(OBJ) $(LIBRARIES)
-	gcc $< -o matrixmult $(ALL_LDFLAGS)
-	
-LibPPC/lib/static/libppc.a: 
-	make -C LibPPC static
+all: $(PROGRAMS)
+
+$(PROGRAMS): %: %.o $(LIBRARIES)
+	$(CC) $< -o $@ $(ALL_LDFLAGS)
+
+LibPPC/lib/static/libppc.a:
+	$(MAKE) -C LibPPC static
 
 clean:
-	rm -f *.o src/*.o matrixmult 
-	
+	rm -f *.o src/*.o $(PROGRAMS)
+
 distclean: clean
 	rm -f *.dat
-	make -C LibPPC clean
-
-
+	$(MAKE) -C LibPPC clean
