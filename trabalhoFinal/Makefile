@@ -15,14 +15,16 @@ LIBRARIES = LibPPC/lib/static/libppc.a
 
 PROGRAMS = \
 	matrixmult_serial \
-	teste \
 	matrixmult_paralelo \
 	countsort_serial \
 	countsort_paralelo \
 	quicksort_serial \
 	quicksort_paralelo \
 	triangulacao_serial \
-	triangulacao_paralelo
+	triangulacao_paralelo \
+	gerar_matrizes_mult \
+	gerar_vetor \
+	gerar_matriz_tri
 
 SRCS = $(addsuffix .c,$(PROGRAMS))
 OBJS = $(SRCS:.c=.o)

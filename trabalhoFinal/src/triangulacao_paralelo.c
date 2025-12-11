@@ -1,107 +1,69 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <omp.h>
+#include "libppc.h"
 
-/*
- *
- * Implementação SERIAL de eliminação gaussiana (triangulação) para
- * uma matriz aumentada N x (N+1). A matriz de entrada representa o
- * sistema linear A.x = b.
- *
- * Uso:
- *   ./triangulacao_paralelo 2 matriz3.in saida_paralelo.out
- *
- * Formato esperado do arquivo de entrada (matriz.in):
- *   N linhas, cada linha com (N+1) valores double.
- */
-
-static double* alloc_matrix(int n) {
-    double* A = (double*) malloc(sizeof(double) * n * (n + 1));
-    if (!A) {
-        fprintf(stderr, "Erro ao alocar memoria para matriz aumentada\n");
-        exit(EXIT_FAILURE);
-    }
-    return A;
-}
-
-static void read_augmented_matrix(const char* filename, double* A, int n) {
-    FILE* f = fopen(filename, "r");
-    if (!f) {
-        perror("Erro ao abrir arquivo de entrada");
-        exit(EXIT_FAILURE);
-    }
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < n + 1; j++) {
-            if (fscanf(f, "%lf", &A[i * (n + 1) + j]) != 1) {
-                fprintf(stderr, "Erro ao ler matriz na linha %d coluna %d\n", i, j);
-                fclose(f);
-                exit(EXIT_FAILURE);
-            }
-        }
-    }
-    fclose(f);
-}
-
-static void write_augmented_matrix(const char* filename, const double* A, int n) {
-    FILE* f = fopen(filename, "w");
-    if (!f) {
-        perror("Erro ao abrir arquivo de saída");
-        exit(EXIT_FAILURE);
-    }
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < n + 1; j++) {
-            fprintf(f, "%.6f", A[i * (n + 1) + j]);
-            if (j < n) fputc(' ', f);
-        }
-        fputc('\n', f);
-    }
-    fclose(f);
-}
-
-static void gaussian_elimination_serial(double* A, int n) {
-    for (int k = 0; k < n - 1; k++) {
-        double pivot = A[k * (n + 1) + k];
+void gaussian_elimination_parallel(double *A, long int n, int num_threads) {
+    for (long int k = 0; k < n - 1; k++) {
+        double pivot = M(k, k, n, A);
         if (pivot == 0.0) {
-            fprintf(stderr, "Pivo zero na linha %d, coluna %d (sem pivoteamento)\n", k, k);
-            continue;
+            fprintf(stderr, "Aviso: pivô zero na linha %ld (sem pivotamento)\n", k);
         }
 
-        for (int i = k + 1; i < n; i++) {
-            double factor = A[i * (n + 1) + k] / pivot;
-            for (int j = k; j < n + 1; j++) {
-                A[i * (n + 1) + j] -= factor * A[k * (n + 1) + j];
+        // DEPENDÊNCIA DE DADOS ENTRE ITERAÇÕES:
+        // O loop externo em k NÃO pode ser paralelizado:
+        // a iteração k+1 depende dos elementos atualizados na iteração k
+        // Ou seja, existe dependência de dados entre iterações de k
+
+        // Por isso, paralelizamos apenas o loop nas linhas i (abaixo do pivô),
+        // mantendo a ordem sequencial no loop de k
+        #pragma omp parallel for num_threads(num_threads) default(none) shared(A, n, k, pivot)
+        for (long int i = k + 1; i < n; i++) {
+            double factor = (pivot != 0.0) ? M(i, k, n, A) / pivot : 0.0;
+
+            // Cada thread atualiza elementos da linha i, que é exclusiva daquela iteração de i
+            // Não há dependência entre iterações de i dentro do MESMO valor de k, pois
+            // cada thread só mexe na sua própria linha
+            for (long int j = k; j < n; j++) {
+                M(i, j, n, A) -= factor * M(k, j, n, A);
             }
         }
     }
 }
 
-int main(int argc, char* argv[]) {
-    if (argc != 4) {
-        fprintf(stderr,
-                "Uso: %s N matriz.in saida.out\n",
-                argv[0]);
+int main(int argc, char *argv[]) {
+    if (argc < 3 || argc > 4) {
+        fprintf(stderr, "Uso: %s <N> <arquivo_matriz> [num_threads]\n", argv[0]);
         return EXIT_FAILURE;
     }
 
-    int n = atoi(argv[1]);
-    const char* fileIn = argv[2];
-    const char* fileOut = argv[3];
+    long int n = atol(argv[1]);
+    const char *file_mat = argv[2];
+    int num_threads = (argc == 4) ? atoi(argv[3]) : 4;
 
     if (n <= 0) {
         fprintf(stderr, "N deve ser > 0\n");
         return EXIT_FAILURE;
     }
 
-    double* A = alloc_matrix(n);
-    read_augmented_matrix(fileIn, A, n);
+    if (num_threads <= 0) num_threads = 4;
+
+    double *A = load_double_matrix(file_mat, n, n);
+    if (!A) {
+        fprintf(stderr, "Erro ao carregar matriz do arquivo %s\n", file_mat);
+        return EXIT_FAILURE;
+    }
 
     double start = omp_get_wtime();
-    gaussian_elimination_serial(A, n);
+    gaussian_elimination_parallel(A, n, num_threads);
     double end = omp_get_wtime();
 
-    write_augmented_matrix(fileOut, A, n);
+    if (save_double_matrix(A, n, n, "saida.out") != 0) {
+        fprintf(stderr, "Erro ao salvar matriz em saida.out\n");
+    }
 
-    printf("Tempo (serial) triangulacao N=%d: %f segundos\n", n, end - start);
+    printf("Threads: %d\n", num_threads);
+    printf("Tempo paralelo (s): %f\n", end - start);
 
     free(A);
     return EXIT_SUCCESS;

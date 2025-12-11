@@ -1,108 +1,76 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <omp.h>
+#include "libppc.h"
 
-/*
- *
- * Implementação SERIAL da multiplicação de matrizes quadradas.
- *
- * Uso:
- *   ./matrixmult_serial 2 matriz1.in matriz2.in matriz_serial.out
- *
- * Os arquivos de entrada devem conter N*N valores em ponto flutuante
- * (double), separados por espaço ou quebra de linha, em ordem linha-major.
- */
-
-static double* alloc_matrix(int n) {
-    double* m = (double*) malloc(sizeof(double) * n * n);
-    if (!m) {
-        fprintf(stderr, "Erro ao alocar memoria para matriz %d x %d\n", n, n);
+double* matrix_mult_parallel(const double *m1, const double *m2, long int n, int num_threads) {
+    double *mR = (double*) malloc(sizeof(double) * n * n);
+    if (mR == NULL) {
+        fprintf(stderr, "Erro ao alocar memoria para matriz resultado\n");
         exit(EXIT_FAILURE);
     }
-    return m;
-}
 
-static void read_matrix(const char* filename, double* m, int n) {
-    FILE* f = fopen(filename, "r");
-    if (!f) {
-        perror("Erro ao abrir arquivo de entrada");
-        exit(EXIT_FAILURE);
-    }
-    for (int i = 0; i < n * n; i++) {
-        if (fscanf(f, "%lf", &m[i]) != 1) {
-            fprintf(stderr, "Erro ao ler elemento %d do arquivo %s\n", i, filename);
-            fclose(f);
-            exit(EXIT_FAILURE);
-        }
-    }
-    fclose(f);
-}
-
-static void write_matrix(const char* filename, const double* m, int n) {
-    FILE* f = fopen(filename, "w");
-    if (!f) {
-        perror("Erro ao abrir arquivo de saída");
-        exit(EXIT_FAILURE);
-    }
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < n; j++) {
-            fprintf(f, "%.6f", m[i * n + j]);
-            if (j < n - 1) {
-                fputc(' ', f);
+    #pragma omp parallel for num_threads(num_threads) collapse(2)
+    for (long int i = 0; i < n; i++) {
+        for (long int j = 0; j < n; j++) {
+            double soma = 0.0;
+            for (long int k = 0; k < n; k++) {
+                soma += M(i, k, n, m1) * M(k, j, n, m2);
             }
-        }
-        fputc('\n', f);
-    }
-    fclose(f);
-}
-
-static void matrix_mult_serial(const double* A, const double* B, double* C, int n) {
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < n; j++) {
-            double sum = 0.0;
-            for (int k = 0; k < n; k++) {
-                sum += A[i * n + k] * B[k * n + j];
-            }
-            C[i * n + j] = sum;
+            M(i, j, n, mR) = soma;
         }
     }
+
+    return mR;
 }
 
-int main(int argc, char* argv[]) {
-    if (argc != 5) {
-        fprintf(stderr,
-                "Uso: %s N matriz1.in matriz2.in matriz_out.in\n",
-                argv[0]);
+int main(int argc, char *argv[]) {
+    if (argc < 4 || argc > 5) {
+        fprintf(stderr, "Uso: %s <N> <arquivo_matriz1> <arquivo_matriz2> [num_threads]\n", argv[0]);
         return EXIT_FAILURE;
     }
 
-    int n = atoi(argv[1]);
-    const char* fileA = argv[2];
-    const char* fileB = argv[3];
-    const char* fileOut = argv[4];
+    long int n = atol(argv[1]);
+    const char *file_m1 = argv[2];
+    const char *file_m2 = argv[3];
+    int num_threads = (argc == 5) ? atoi(argv[4]) : 4;
 
     if (n <= 0) {
         fprintf(stderr, "N deve ser > 0\n");
         return EXIT_FAILURE;
     }
 
-    double* A = alloc_matrix(n);
-    double* B = alloc_matrix(n);
-    double* C = alloc_matrix(n);
+    if (num_threads <= 0) {
+        num_threads = 4;
+    }
 
-    read_matrix(fileA, A, n);
-    read_matrix(fileB, B, n);
+    double *m1 = load_double_matrix(file_m1, n, n);
+    if (m1 == NULL) {
+        fprintf(stderr, "Erro ao carregar matriz 1 do arquivo %s\n", file_m1);
+        return EXIT_FAILURE;
+    }
+
+    double *m2 = load_double_matrix(file_m2, n, n);
+    if (m2 == NULL) {
+        fprintf(stderr, "Erro ao carregar matriz 2 do arquivo %s\n", file_m2);
+        free(m1);
+        return EXIT_FAILURE;
+    }
 
     double start = omp_get_wtime();
-    matrix_mult_serial(A, B, C, n);
+    double *mR = matrix_mult_parallel(m1, m2, n, num_threads);
     double end = omp_get_wtime();
 
-    write_matrix(fileOut, C, n);
+    if (save_double_matrix(mR, n, n, "matriz_mult.out") != 0) {
+        fprintf(stderr, "Erro ao salvar matriz resultado em matriz_mult.out\n");
+    }
 
-    printf("Tempo (serial) multiplicacao %dx%d: %f segundos\n", n, n, end - start);
+    printf("Threads: %d\n", num_threads);
+    printf("Tempo paralelo (s): %f\n", end - start);
 
-    free(A);
-    free(B);
-    free(C);
+    free(m1);
+    free(m2);
+    free(mR);
+
     return EXIT_SUCCESS;
 }

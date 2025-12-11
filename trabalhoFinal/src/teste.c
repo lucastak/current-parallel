@@ -1,8 +1,7 @@
-// matrixmult_serial.c
 #include <stdio.h>
 #include <stdlib.h>
 #include <omp.h>      // pode ser usado só para medir tempo, mas não paraleliza aqui
-#include <libppc.h>
+#include "libppc.h"
 
 double* matrix_mult_serial(const double *m1, const double *m2, long int n) {
     double *mR = (double*) malloc(sizeof(double) * n * n);

@@ -1,68 +1,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <omp.h>
+#include "libppc.h"
 
-/*
- *
- * A ideia é:
- *  - Criar uma região paralela única com 'omp parallel'
- *  - Criar uma tarefa inicial com 'omp single'
- *  - Dentro da função recursiva, criar novas tasks para cada subproblema,
- *    até uma profundidade máxima para evitar overhead de criação excessiva.
- *
- * Uso:
- *   ./quicksort_paralelo 10 vetor.in vetor_quick_paralelo.out 4
- */
-
-#define MAX_DEPTH 4  /* profundidade máxima de tarefas */
-
-static double* alloc_vector(long n) {
-    double* v = (double*) malloc(sizeof(double) * n);
-    if (!v) {
-        fprintf(stderr, "Erro ao alocar memoria para vetor de tamanho %ld\n", n);
-        exit(EXIT_FAILURE);
-    }
-    return v;
-}
-
-static void read_vector(const char* filename, double* v, long n) {
-    FILE* f = fopen(filename, "r");
-    if (!f) {
-        perror("Erro ao abrir arquivo de entrada");
-        exit(EXIT_FAILURE);
-    }
-    for (long i = 0; i < n; i++) {
-        if (fscanf(f, "%lf", &v[i]) != 1) {
-            fprintf(stderr, "Erro ao ler elemento %ld do arquivo %s\n", i, filename);
-            fclose(f);
-            exit(EXIT_FAILURE);
-        }
-    }
-    fclose(f);
-}
-
-static void write_vector(const char* filename, const double* v, long n) {
-    FILE* f = fopen(filename, "w");
-    if (!f) {
-        perror("Erro ao abrir arquivo de saída");
-        exit(EXIT_FAILURE);
-    }
-    for (long i = 0; i < n; i++) {
-        fprintf(f, "%.6f\n", v[i]);
-    }
-    fclose(f);
-}
-
-static void swap(double* a, double* b) {
-    double tmp = *a;
+static void swap(int *a, int *b) {
+    int tmp = *a;
     *a = *b;
     *b = tmp;
 }
 
-static long partition(double* v, long low, long high) {
-    double pivot = v[high];
-    long i = low - 1;
-    for (long j = low; j < high; j++) {
+static int partition(int *v, int low, int high) {
+    int pivot = v[high];
+    int i = low - 1;
+
+    for (int j = low; j < high; j++) {
         if (v[j] <= pivot) {
             i++;
             swap(&v[i], &v[j]);
@@ -72,74 +23,86 @@ static long partition(double* v, long low, long high) {
     return i + 1;
 }
 
-/* Versão recursiva usada tanto na serial quanto na paralela */
-static void quicksort_serial_rec(double* v, long low, long high) {
+static void quicksort_parallel_rec(int *v, int low, int high, int depth) {
     if (low < high) {
-        long p = partition(v, low, high);
-        quicksort_serial_rec(v, low, p - 1);
-        quicksort_serial_rec(v, p + 1, high);
-    }
-}
+        int p = partition(v, low, high);
 
-/* Função recursiva paralela com tasks */
-static void quicksort_paralelo_rec(double* v, long low, long high, int depth) {
-    if (low < high) {
-        long p = partition(v, low, high);
-
-        if (depth < MAX_DEPTH) {
-            #pragma omp task firstprivate(v, low, p, depth)
-            quicksort_paralelo_rec(v, low, p - 1, depth + 1);
-
-            #pragma omp task firstprivate(v, high, p, depth)
-            quicksort_paralelo_rec(v, p + 1, high, depth + 1);
+        // Após o particionamento, o subarray [low, p-1] contém apenas valores <= pivot,
+        // e [p+1, high] contém apenas valores >= pivot
+        // Essas duas faixas NÃO compartilham elementos, portanto podem ser ordenadas em paralelo
+        if (depth <= 0) {
+            // DEPENDÊNCIA DE DADOS:
+            // Nesta parte, rodamos de forma serial: chamadas recursivas dependem da ordenação anterior
+            // na estrutura da pilha, mas cada chamada trabalha em um subarray distinto de v
+            if (low < p - 1) quicksort_parallel_rec(v, low, p - 1, depth - 1);
+            if (p + 1 < high) quicksort_parallel_rec(v, p + 1, high, depth - 1);
         } else {
-            quicksort_serial_rec(v, low, p - 1);
-            quicksort_serial_rec(v, p + 1, high);
+            // REGIÃO PARALELA ENTRE SUBPROBLEMAS:
+            // Cada seção trabalha em uma porção disjunta do vetor v
+            // Não há dependência de dados entre as duas seções, pois intervalos não se sobrepõem
+            #pragma omp parallel sections
+            {
+                #pragma omp section
+                quicksort_parallel_rec(v, low, p - 1, depth - 1);
+
+                #pragma omp section
+                quicksort_parallel_rec(v, p + 1, high, depth - 1);
+            }
         }
     }
 }
 
-static void quicksort_paralelo(double* v, long n, int num_threads) {
+void quicksort_parallel(int *v, long int n, int num_threads) {
     if (n <= 1) return;
 
     omp_set_num_threads(num_threads);
 
+    int max_depth = 4;
+
+    // Uma única região paralela, com uma thread "single" iniciando a recursão
+    // As novas tarefas são subdivididas via "sections"
     #pragma omp parallel
     {
         #pragma omp single nowait
-        quicksort_paralelo_rec(v, 0, n - 1, 0);
+        {
+            quicksort_parallel_rec(v, 0, (int)n - 1, max_depth);
+        }
     }
 }
 
-int main(int argc, char* argv[]) {
-    if (argc != 5) {
-        fprintf(stderr,
-                "Uso: %s N vetor.in vetor_ordenado.out num_threads\n",
-                argv[0]);
+int main(int argc, char *argv[]) {
+    if (argc < 3 || argc > 4) {
+        fprintf(stderr, "Uso: %s <N> <arquivo_vetor> [num_threads]\n", argv[0]);
         return EXIT_FAILURE;
     }
 
-    long n = atol(argv[1]);
-    const char* fileIn = argv[2];
-    const char* fileOut = argv[3];
-    int num_threads = atoi(argv[4]);
+    long int n = atol(argv[1]);
+    const char *file_vec = argv[2];
+    int num_threads = (argc == 4) ? atoi(argv[3]) : 4;
 
-    if (n <= 0 || num_threads <= 0) {
-        fprintf(stderr, "N e num_threads devem ser > 0\n");
+    if (n <= 0) {
+        fprintf(stderr, "N deve ser > 0\n");
         return EXIT_FAILURE;
     }
 
-    double* v = alloc_vector(n);
-    read_vector(fileIn, v, n);
+    if (num_threads <= 0) num_threads = 4;
+
+    int *v = load_int_vector(file_vec, n);
+    if (!v) {
+        fprintf(stderr, "Erro ao carregar vetor do arquivo %s\n", file_vec);
+        return EXIT_FAILURE;
+    }
 
     double start = omp_get_wtime();
-    quicksort_paralelo(v, n, num_threads);
+    quicksort_parallel(v, n, num_threads);
     double end = omp_get_wtime();
 
-    write_vector(fileOut, v, n);
+    if (save_int_vector(v, n, "vetor_ordenado.out") != 0) {
+        fprintf(stderr, "Erro ao salvar vetor em vetor_ordenado.out\n");
+    }
 
-    printf("Tempo (paralelo, %d threads) QuickSort N=%ld: %f segundos\n",
-           num_threads, n, end - start);
+    printf("Threads: %d\n", num_threads);
+    printf("Tempo paralelo (s): %f\n", end - start);
 
     free(v);
     return EXIT_SUCCESS;
