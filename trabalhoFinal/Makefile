@@ -15,6 +15,7 @@ LIBRARIES = LibPPC/lib/static/libppc.a
 
 PROGRAMS = \
 	matrixmult_serial \
+	teste \
 	matrixmult_paralelo \
 	countsort_serial \
 	countsort_paralelo \
