@@ -3,33 +3,36 @@
 #include "libppc.h"
 
 int main(int argc, char *argv[]) {
-    if (argc != 3) {
-        fprintf(stderr, "Uso: %s <N> <arquivo_saida>\n", argv[0]);
-        fprintf(stderr, "Exemplo: %s 500 matriz_tri_500.in\n", argv[0]);
+    if (argc != 2) {
+        fprintf(stderr, "Uso: %s <N>\n", argv[0]);
+        fprintf(stderr, "Gera matriz3.in representando uma matriz aumentada N x (N+1).\n");
         return EXIT_FAILURE;
     }
 
     long int n = atol(argv[1]);
-    const char *filename = argv[2];
 
     if (n <= 0) {
         fprintf(stderr, "N deve ser > 0\n");
         return EXIT_FAILURE;
     }
 
-    double *A = generate_random_double_matrix(n, n);
+    long int cols = n + 1;
+
+    printf("Gerando matriz aumentada %ld x %ld em matriz3.in...\n", n, cols);
+
+    double *A = generate_random_double_matrix(n, cols);
     if (!A) {
-        fprintf(stderr, "Erro ao gerar matriz\n");
+        fprintf(stderr, "Erro ao gerar matriz aumentada\n");
         return EXIT_FAILURE;
     }
 
-    if (save_double_matrix(A, n, n, filename) != 0) {
-        fprintf(stderr, "Erro ao salvar matriz em %s\n", filename);
+    if (save_double_matrix(A, n, cols, "matriz3.in") != 0) {
+        fprintf(stderr, "Erro ao salvar matriz3.in\n");
         free(A);
         return EXIT_FAILURE;
     }
 
-    printf("Gerado arquivo de matriz: %s (%ld x %ld)\n", filename, n, n);
+    printf("Arquivo gerado: matriz3.in\n");
 
     free(A);
     return EXIT_SUCCESS;

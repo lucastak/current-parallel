@@ -3,21 +3,27 @@
 #include "libppc.h"
 
 int main(int argc, char *argv[]) {
-    if (argc != 5) {
-        fprintf(stderr, "Uso: %s <N> <min> <max> <arquivo_saida>\n", argv[0]);
-        fprintf(stderr, "Exemplo: %s 100000 0 100000 vetor_100k.in\n", argv[0]);
+    if (argc != 4) {
+        fprintf(stderr, "Uso: %s <N> <min> <max>\n", argv[0]);
+        fprintf(stderr, "Gera vetor.in com N inteiros aleatorios no intervalo [min, max].\n");
         return EXIT_FAILURE;
     }
 
     long int n = atol(argv[1]);
     int min = atoi(argv[2]);
     int max = atoi(argv[3]);
-    const char *filename = argv[4];
 
     if (n <= 0) {
         fprintf(stderr, "N deve ser > 0\n");
         return EXIT_FAILURE;
     }
+
+    if (min > max) {
+        fprintf(stderr, "min deve ser <= max\n");
+        return EXIT_FAILURE;
+    }
+
+    printf("Gerando vetor.in com %ld elementos em [%d, %d]...\n", n, min, max);
 
     int *v = generate_random_int_vector(n, min, max);
     if (!v) {
@@ -25,13 +31,13 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
-    if (save_int_vector(v, n, filename) != 0) {
-        fprintf(stderr, "Erro ao salvar vetor em %s\n", filename);
+    if (save_int_vector(v, n, "vetor.in") != 0) {
+        fprintf(stderr, "Erro ao salvar vetor.in\n");
         free(v);
         return EXIT_FAILURE;
     }
 
-    printf("Gerado arquivo de vetor: %s (tamanho = %ld)\n", filename, n);
+    printf("Arquivo gerado: vetor.in\n");
 
     free(v);
     return EXIT_SUCCESS;

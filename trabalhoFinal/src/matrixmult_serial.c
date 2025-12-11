@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <omp.h>
-#include <libppc.h>
+#include "libppc.h"
 
 double* matrix_mult_serial(const double *m1, const double *m2, long int n) {
     double *mR = (double*) malloc(sizeof(double) * n * n);
@@ -24,14 +24,15 @@ double* matrix_mult_serial(const double *m1, const double *m2, long int n) {
 }
 
 int main(int argc, char *argv[]) {
-    if (argc != 4) {
-        fprintf(stderr, "Uso: %s <N> <arquivo_matriz1> <arquivo_matriz2>\n", argv[0]);
+    if (argc != 5) {
+        fprintf(stderr, "Uso: %s <N> <arquivo_matriz1> <arquivo_matriz2> <arquivo_saida>\n", argv[0]);
         return EXIT_FAILURE;
     }
 
     long int n = atol(argv[1]);
     const char *file_m1 = argv[2];
     const char *file_m2 = argv[3];
+    const char *file_out = argv[4];
 
     if (n <= 0) {
         fprintf(stderr, "N deve ser > 0\n");
@@ -55,9 +56,8 @@ int main(int argc, char *argv[]) {
     double *mR = matrix_mult_serial(m1, m2, n);
     double end = omp_get_wtime();
 
-    // salva resultado
-    if (save_double_matrix(mR, n, n, "matriz_mult.out") != 0) {
-        fprintf(stderr, "Erro ao salvar matriz resultado em matriz_mult.out\n");
+    if (save_double_matrix(mR, n, n, file_out) != 0) {
+        fprintf(stderr, "Erro ao salvar matriz resultado em %s\n", file_out);
     }
 
     printf("Tempo serial (s): %f\n", end - start);

@@ -34,15 +34,18 @@ double* matrix_mult_parallel(const double *m1, const double *m2, long int n, int
 }
 
 int main(int argc, char *argv[]) {
-    if (argc < 4 || argc > 5) {
-        fprintf(stderr, "Uso: %s <N> <arquivo_matriz1> <arquivo_matriz2> [num_threads]\n", argv[0]);
+    // Formato esperado:
+    // ./matrixmult_paralelo <N> <arquivo_matriz1> <arquivo_matriz2> <arquivo_saida> [num_threads]
+    if (argc < 5 || argc > 6) {
+        fprintf(stderr, "Uso: %s <N> <arquivo_matriz1> <arquivo_matriz2> <arquivo_saida> [num_threads]\n", argv[0]);
         return EXIT_FAILURE;
     }
 
     long int n = atol(argv[1]);
     const char *file_m1 = argv[2];
     const char *file_m2 = argv[3];
-    int num_threads = (argc == 5) ? atoi(argv[4]) : 4;
+    const char *file_out = argv[4];
+    int num_threads = (argc == 6) ? atoi(argv[5]) : 4;
 
     if (n <= 0) {
         fprintf(stderr, "N deve ser > 0\n");
@@ -70,8 +73,8 @@ int main(int argc, char *argv[]) {
     double *mR = matrix_mult_parallel(m1, m2, n, num_threads);
     double end = omp_get_wtime();
 
-    if (save_double_matrix(mR, n, n, "matriz_mult.out") != 0) {
-        fprintf(stderr, "Erro ao salvar matriz resultado em matriz_mult.out\n");
+    if (save_double_matrix(mR, n, n, file_out) != 0) {
+        fprintf(stderr, "Erro ao salvar matriz resultado em %s\n", file_out);
     }
 
     printf("Threads: %d\n", num_threads);

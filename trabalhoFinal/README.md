@@ -90,3 +90,13 @@ make clean
    - Speedup = tempo_serial / tempo_paralelo
    - Eficiência = speedup / quantidade_de_threads
 4. Preencha tabelas e gráficos no relatório.
+
+
+# Matrizes para multiplicação (ex: N = 2, 500, 1000, etc.)
+./gerar_matrizes_mult 2     # gera matriz1.in e matriz2.in
+
+# Vetor para ordenação
+./gerar_vetor 10 0 100      # gera vetor.in
+
+# Matriz aumentada para triangulação
+./gerar_matriz_tri 2        # gera matriz3.in

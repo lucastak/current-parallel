@@ -3,36 +3,53 @@
 #include "libppc.h"
 
 int main(int argc, char *argv[]) {
-    if (argc != 3) {
-        fprintf(stderr, "Uso: %s <N> <prefixo>\n", argv[0]);
-        fprintf(stderr, "Exemplo: %s 500 matriz\n", argv[0]);
-        fprintf(stderr, "Vai gerar: matriz1_500.in e matriz2_500.in\n");
+    if (argc != 2) {
+        fprintf(stderr, "Uso: %s <N>\n", argv[0]);
+        fprintf(stderr, "Gera matriz1.in e matriz2.in com dimensao N x N.\n");
         return EXIT_FAILURE;
     }
 
     long int n = atol(argv[1]);
-    const char *prefix = argv[2];
 
     if (n <= 0) {
         fprintf(stderr, "N deve ser > 0\n");
         return EXIT_FAILURE;
     }
 
+    printf("Gerando matrizes %ldx%ld...\n", n, n);
+
+    // matriz1.in
     double *m1 = generate_random_double_matrix(n, n);
+    if (!m1) {
+        fprintf(stderr, "Erro ao gerar matriz 1\n");
+        return EXIT_FAILURE;
+    }
+
+    if (save_double_matrix(m1, n, n, "matriz1.in") != 0) {
+        fprintf(stderr, "Erro ao salvar matriz1.in\n");
+        free(m1);
+        return EXIT_FAILURE;
+    }
+
+    // matriz2.in
     double *m2 = generate_random_double_matrix(n, n);
+    if (!m2) {
+        fprintf(stderr, "Erro ao gerar matriz 2\n");
+        free(m1);
+        return EXIT_FAILURE;
+    }
 
-    char file1[256];
-    char file2[256];
+    if (save_double_matrix(m2, n, n, "matriz2.in") != 0) {
+        fprintf(stderr, "Erro ao salvar matriz2.in\n");
+        free(m1);
+        free(m2);
+        return EXIT_FAILURE;
+    }
 
-    snprintf(file1, sizeof(file1), "%s1_%ld.in", prefix, n);
-    snprintf(file2, sizeof(file2), "%s2_%ld.in", prefix, n);
-
-    save_double_matrix(m1, n, n, file1);
-    save_double_matrix(m2, n, n, file2);
-
-    printf("Gerados arquivos: %s e %s\n", file1, file2);
+    printf("Arquivos gerados: matriz1.in, matriz2.in\n");
 
     free(m1);
     free(m2);
+
     return EXIT_SUCCESS;
 }
