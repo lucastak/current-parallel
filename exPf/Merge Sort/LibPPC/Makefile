@@ -9,7 +9,7 @@ LD=gcc
 
 # passar como parametro do Makefile o nome do codigo fonte
 HEADERS = include/libppc.h
-SRC = libpcc.c
+SRC = libppc.c
 OBJ = $(SRC:.c=.o)
 
 .PHONY: all clean clean-obj static shared
