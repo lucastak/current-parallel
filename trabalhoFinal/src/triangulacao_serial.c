@@ -2,13 +2,11 @@
 #include <stdlib.h>
 #include "libppc.h"
 
-// Triangulação (eliminação Gaussiana sem pivotamento)
 void gaussian_elimination_serial(double *A, long int n) {
     for (long int k = 0; k < n - 1; k++) {
-        // pivô: A[k,k]
         double pivot = M(k, k, n, A);
+
         if (pivot == 0.0) {
-            // para simplicidade, não faço pivotamento parcial aqui
             fprintf(stderr, "Aviso: pivô zero na linha %ld (sem pivotamento)\n", k);
         }
 
