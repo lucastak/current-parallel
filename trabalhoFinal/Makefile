@@ -5,10 +5,10 @@ LDFLAGS =
 ALL_LDFLAGS = $(LDFLAGS) LibPPC/lib/static/libppc.a -fopenmp
 
 # caminho para MACOS /opt/homebrew/bin/gcc-15
-CC = /opt/homebrew/bin/gcc-15
-LD = /opt/homebrew/bin/gcc-15
-# CC = gcc
-# LD = gcc
+# CC = /opt/homebrew/bin/gcc-15
+# LD = /opt/homebrew/bin/gcc-15
+CC = gcc
+LD = gcc
 
 HEADERS   = LibPPC/include/libppc.h
 LIBRARIES = LibPPC/lib/static/libppc.a
